@@ -26,6 +26,11 @@ jobs:
       - name: Helm template (dev)
         run: helm template helm-rest-api-dev ./charts/helm-rest-api -f ./charts/helm-rest-api/values-dev.yml >/dev/null
 
+      - name: Kubeconform (dev render)
+        run: |
+          helm template helm-rest-api-dev ./charts/helm-rest-api -f ./charts/helm-rest-api/values-dev.yml \
+            | docker run --rm -i ghcr.io/yannh/kubeconform:v0.6.7 -strict -ignore-missing-schemas
+
   dockerfile-lint:
     runs-on: ubuntu-latest
     steps:

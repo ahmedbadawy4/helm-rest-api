@@ -61,6 +61,10 @@ HELM_VALUES="--set monitoring.serviceMonitor.enabled=true" make helm-deploy-dev
 ```
 *`ServiceMonitor` is a Prometheus Operator custom resource. When enabled, it instructs Prometheus Operator to discover the chart Service by labels and scrape `GET /metrics` on the `http` port at the configured interval/timeout. If Prometheus Operator (and the `ServiceMonitor` CRD) is not installed in the cluster, this resource will not be used (and may be rejected by the API server).*
 
+### Network Policy
+
+An optional `NetworkPolicy` is available. When enabled, it restricts ingress to the application Pods to only the namespaces listed in `networkPolicy.allowIngressFromNamespaces` (e.g., `traefik` and `monitoring`) and allows DNS egress if `networkPolicy.allowEgressDNS=true`.
+
 ### Autoscaling (HPA)
 
 HPA is available (disabled by default). Enabling it requires CPU requests.
@@ -83,6 +87,24 @@ For local demos, a self-signed TLS secret named `helm-rest-api-tls` can be creat
 In real environments, a company-issued certificate can be stored as a Kubernetes TLS secret, or cert-manager (recommended) can be used to issue/renew certificates automatically.
 
 Traefik can also be configured with a default certificate (fallback). For production usage, a valid certificate for the company domain should be used.
+
+### Traffic Control (Traefik Middlewares)
+
+For "Istio-like" traffic controls at the edge (without a full service mesh), the chart can create Traefik `Middleware` resources (rate limiting, retries, and security headers) and attach them to the Ingress via annotations.
+
+Enable in values:
+
+```yaml
+traefik:
+  middlewares:
+    enabled: true
+```
+
+Smoke test (requires Traefik installed and Ingress enabled):
+
+```bash
+make traefik-test-dev
+```
 
 ### Container Image (GHCR)
 

@@ -22,6 +22,7 @@ spec:
       {{- end }}
     spec:
       serviceAccountName: {{ include "helm-rest-api.serviceAccountName" . }}
+      automountServiceAccountToken: {{ .Values.automountServiceAccountToken }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       {{- with .Values.imagePullSecrets }}

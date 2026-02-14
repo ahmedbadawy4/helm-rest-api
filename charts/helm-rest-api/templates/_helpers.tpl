@@ -50,3 +50,23 @@ ServiceAccount name.
 {{- default "default" .Values.serviceAccount.name -}}
 {{- end -}}
 {{- end -}}
+
+{{/*
+Build a Traefik middleware reference list for Ingress annotation.
+Format: <namespace>-<middlewareName>@kubernetescrd,<namespace>-<middlewareName>@kubernetescrd
+*/}}
+{{- define "helm-rest-api.traefikMiddlewareRefs" -}}
+{{- $refs := list -}}
+{{- $ns := .Release.Namespace -}}
+{{- $base := include "helm-rest-api.fullname" . -}}
+{{- if and .Values.traefik.middlewares.enabled .Values.traefik.middlewares.rateLimit.enabled -}}
+{{- $refs = append $refs (printf "%s-%s-ratelimit@kubernetescrd" $ns $base) -}}
+{{- end -}}
+{{- if and .Values.traefik.middlewares.enabled .Values.traefik.middlewares.retry.enabled -}}
+{{- $refs = append $refs (printf "%s-%s-retry@kubernetescrd" $ns $base) -}}
+{{- end -}}
+{{- if and .Values.traefik.middlewares.enabled .Values.traefik.middlewares.headers.enabled -}}
+{{- $refs = append $refs (printf "%s-%s-headers@kubernetescrd" $ns $base) -}}
+{{- end -}}
+{{- join "," $refs -}}
+{{- end -}}

@@ -42,3 +42,20 @@ ingress:
     - secretName: helm-rest-api-tls
       hosts:
         - helm-rest-api.local
+
+traefik:
+  middlewares:
+    enabled: true
+
+monitoring:
+  serviceMonitor:
+    enabled: true
+
+automountServiceAccountToken: false
+
+networkPolicy:
+  enabled: true
+  allowIngressFromNamespaces:
+    - traefik
+    - monitoring
+  allowEgressDNS: true

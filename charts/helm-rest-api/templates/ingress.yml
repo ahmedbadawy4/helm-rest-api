@@ -5,10 +5,14 @@ metadata:
   name: {{ include "helm-rest-api.fullname" . }}
   labels:
     {{- include "helm-rest-api.labels" . | nindent 4 }}
-  {{- with .Values.ingress.annotations }}
   annotations:
+    {{- $mw := include "helm-rest-api.traefikMiddlewareRefs" . }}
+    {{- if $mw }}
+    traefik.ingress.kubernetes.io/router.middlewares: {{ $mw | quote }}
+    {{- end }}
+    {{- with .Values.ingress.annotations }}
     {{- toYaml . | nindent 4 }}
-  {{- end }}
+    {{- end }}
 spec:
   {{- if .Values.ingress.className }}
   ingressClassName: {{ .Values.ingress.className }}

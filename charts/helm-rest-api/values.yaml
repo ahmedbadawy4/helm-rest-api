@@ -25,14 +25,47 @@ ingress:
   hosts: []
   tls: []
 
+traefik:
+  middlewares:
+    enabled: false
+    rateLimit:
+      enabled: true
+      average: 50
+      burst: 100
+    retry:
+      enabled: true
+      attempts: 3
+      initialInterval: 100ms
+    headers:
+      enabled: true
+      # Reasonable baseline headers. Tune per org requirements.
+      stsSeconds: 31536000
+      stsIncludeSubdomains: true
+      stsPreload: true
+      contentTypeNosniff: true
+      browserXssFilter: true
+      frameDeny: true
+
 monitoring:
   serviceMonitor:
-    enabled: true
+    enabled: false
     interval: 30s
     scrapeTimeout: 10s
     path: /metrics
     honorLabels: false
     additionalLabels: {}
+
+automountServiceAccountToken: false
+
+networkPolicy:
+  enabled: false
+  # Allow ingress only from selected namespaces (by name).
+  # Example:
+  # allowIngressFromNamespaces:
+  #   - traefik
+  #   - monitoring
+  allowIngressFromNamespaces: []
+  allowEgressDNS: true
 
 podSecurityContext:
   runAsNonRoot: true

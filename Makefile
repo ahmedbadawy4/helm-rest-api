@@ -26,6 +26,7 @@ DEV_PF_LOG ?= /tmp/$(DEV_RELEASE)-pf.log
 	helm-deploy-dev helm-cleanup-dev \
 	helm-urls-dev \
 	traefik-install traefik-uninstall \
+	traefik-urls traefik-pf-stop traefik-test-dev \
 
 
 help:
@@ -46,7 +47,10 @@ help:
 	@printf "%s\n" \
 	"" \
 	"  traefik-install   Install/upgrade Traefik (namespace: traefik)" \
-	"  traefik-uninstall Uninstall Traefik (namespace: traefik)"
+	"  traefik-uninstall Uninstall Traefik (namespace: traefik)" \
+	"  traefik-urls      Start Traefik port-forward and print local endpoints" \
+	"  traefik-test-dev  Smoke-test dev Ingress + Traefik middlewares" \
+	"  traefik-pf-stop   Stop Traefik port-forward"
 
 docker-build:
 	docker build -t $(IMAGE) .
@@ -124,6 +128,12 @@ helm-cleanup-dev:
 TRAEFIK_NS ?= traefik
 TRAEFIK_RELEASE ?= traefik
 TRAEFIK_VALUES ?= -f ./tools/traefik-values.yaml
+TRAEFIK_SVC ?= traefik
+TRAEFIK_PF_PID ?= /tmp/traefik-port-forward.pid
+TRAEFIK_PF_LOG ?= /tmp/traefik-port-forward.log
+TRAEFIK_LOCAL_HTTPS_PORT ?= 8443
+
+DEV_INGRESS_HOST ?= helm-rest-api.local
 
 traefik-install:
 	helm repo add traefik https://traefik.github.io/charts
@@ -134,3 +144,37 @@ traefik-install:
 
 traefik-uninstall:
 	@helm uninstall $(TRAEFIK_RELEASE) -n $(TRAEFIK_NS) >/dev/null 2>&1 || true
+
+traefik-urls:
+	@set -e; \
+	if test -f "$(TRAEFIK_PF_PID)" && kill -0 "$$(cat "$(TRAEFIK_PF_PID)")" >/dev/null 2>&1; then \
+		:; \
+	else \
+		rm -f "$(TRAEFIK_PF_PID)" "$(TRAEFIK_PF_LOG)"; \
+		( kubectl -n "$(TRAEFIK_NS)" port-forward "svc/$(TRAEFIK_SVC)" "$(TRAEFIK_LOCAL_HTTPS_PORT):443" >"$(TRAEFIK_PF_LOG)" 2>&1 & echo $$! > "$(TRAEFIK_PF_PID)" ); \
+		sleep 1; \
+	fi
+	@printf "%s\n" \
+	"Traefik local endpoints:" \
+	"  https://localhost:$(TRAEFIK_LOCAL_HTTPS_PORT)/  (use Host: $(DEV_INGRESS_HOST))" \
+	"  https://localhost:$(TRAEFIK_LOCAL_HTTPS_PORT)/health  (use Host: $(DEV_INGRESS_HOST))"
+
+traefik-pf-stop:
+	@if test -f "$(TRAEFIK_PF_PID)"; then kill "$$(cat "$(TRAEFIK_PF_PID)")" >/dev/null 2>&1 || true; fi
+	@rm -f "$(TRAEFIK_PF_PID)" "$(TRAEFIK_PF_LOG)"
+
+traefik-test-dev: traefik-urls
+	@set -e; \
+	url="https://localhost:$(TRAEFIK_LOCAL_HTTPS_PORT)/health"; \
+	echo "Request: $$url (Host: $(DEV_INGRESS_HOST))"; \
+	code="$$(curl -sk -o /dev/null -w '%{http_code}' -H "Host: $(DEV_INGRESS_HOST)" "$$url")"; \
+	echo "Status: $$code"; \
+	if test "$$code" != "200"; then \
+		echo "Failed. Recent Traefik port-forward log:"; \
+		test -f "$(TRAEFIK_PF_LOG)" && tail -n 50 "$(TRAEFIK_PF_LOG)" || true; \
+		exit 1; \
+	fi; \
+	echo "Response headers (expect security headers when middlewares are enabled):"; \
+	curl -skI -H "Host: $(DEV_INGRESS_HOST)" "$$url" | grep -Ei '^(strict-transport-security|x-content-type-options|x-frame-options|x-xss-protection):' || true; \
+	echo "Rate-limit probe (200 requests, status code histogram):"; \
+	i=0; while test $$i -lt 200; do curl -sk -o /dev/null -w '%{http_code}\n' -H "Host: $(DEV_INGRESS_HOST)" "$$url"; i=$$((i+1)); done | sort | uniq -c
