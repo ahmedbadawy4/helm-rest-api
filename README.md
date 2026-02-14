@@ -32,26 +32,26 @@ The application exposes `GET /health` and expects:
 - `LISTEN_HOST` (defaults to `0.0.0.0` in the chart)
 - `LISTEN_PORT` (wired to the container port in the chart)
 
+This stage is dev-focused (no Ingress/TLS in the chart yet).
+
 ### Install (dev)
 
 ```bash
-helm upgrade --install helm-rest-api-dev ./charts/helm-rest-api \
-  -n dev --create-namespace \
-  --values ./charts/helm-rest-api/values-dev.yml
+make helm-deploy-dev
 ```
 
-For quick local access (no ingress), you can port-forward:
+Print local URLs (starts a background port-forward and verifies `/health`):
 
 ```bash
-kubectl -n dev port-forward svc/helm-rest-api-dev 8080:80
-curl -fsSL http://localhost:8080/health
+make helm-urls-dev
 ```
 
 ### Container Image (GHCR)
 
-This repo includes a GitHub Action that publishes the image to GitHub Container Registry on pushes to `main`:
+This repo includes a GitHub Action that publishes the image to GitHub Container Registry on `push` (not PRs):
 
-Update `charts/helm-rest-api/values.yaml` (or pass `--set image.repository=... --set image.tag=...`) to point to your GHCR image.
+Dev defaults are set in `charts/helm-rest-api/values-dev.yml` (repository + tag).
+```
 
 **Notes: If the GHCR package is private, create an image pull secret and set it via Helm values:**
 
@@ -69,3 +69,7 @@ Then set:
 imagePullSecrets:
   - name: ghcr-pull
 ```
+
+### Security Defaults
+
+The chart sets secure defaults for the pod/container (non-root, seccomp `RuntimeDefault`, drop all caps, `readOnlyRootFilesystem`). The container mounts an `emptyDir` at `/tmp` to support read-only root filesystems.

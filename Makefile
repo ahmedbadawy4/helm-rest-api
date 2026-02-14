@@ -80,11 +80,30 @@ helm-deploy-dev:
 		$(HELM_VALUES)
 
 helm-urls-dev:
-	@if test -f "$(DEV_PF_PID)" && kill -0 "$$(cat "$(DEV_PF_PID)")" >/dev/null 2>&1; then \
-		: ; \
-	else \
-		kubectl -n "$(DEV_NAMESPACE)" port-forward "svc/$(DEV_SVC)" "$(PORT):80" >"$(DEV_PF_LOG)" 2>&1 & echo $$! > "$(DEV_PF_PID)"; \
-		sleep 1; \
+	@set -e; \
+	if test -f "$(DEV_PF_PID)" && kill -0 "$$(cat "$(DEV_PF_PID)")" >/dev/null 2>&1; then \
+		:; \
+		else \
+			rm -f "$(DEV_PF_PID)" "$(DEV_PF_LOG)"; \
+			( kubectl -n "$(DEV_NAMESPACE)" port-forward "svc/$(DEV_SVC)" "$(PORT):80" >"$(DEV_PF_LOG)" 2>&1 & echo $$! > "$(DEV_PF_PID)" ); \
+			sleep 1; \
+			if ! kill -0 "$$(cat "$(DEV_PF_PID)")" >/dev/null 2>&1; then \
+				svc_name="$$(kubectl -n "$(DEV_NAMESPACE)" get svc -l "app.kubernetes.io/instance=$(DEV_RELEASE)" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"; \
+				if test -n "$$svc_name"; then \
+					rm -f "$(DEV_PF_PID)" "$(DEV_PF_LOG)"; \
+				( kubectl -n "$(DEV_NAMESPACE)" port-forward "svc/$$svc_name" "$(PORT):80" >"$(DEV_PF_LOG)" 2>&1 & echo $$! > "$(DEV_PF_PID)" ); \
+				sleep 1; \
+			fi; \
+		fi; \
+	fi; \
+	for i in 1 2 3 4 5 6 7 8 9 10; do \
+		if curl -fsS "http://localhost:$(PORT)/health" >/dev/null 2>&1; then break; fi; \
+		sleep 0.5; \
+	done; \
+	if ! curl -fsS "http://localhost:$(PORT)/health" >/dev/null 2>&1; then \
+		printf "%s\n" "Port-forward failed. Recent log:"; \
+		test -f "$(DEV_PF_LOG)" && tail -n 50 "$(DEV_PF_LOG)" || true; \
+		exit 1; \
 	fi
 	@printf "%s\n" \
 	"Local URLs (dev):" \
