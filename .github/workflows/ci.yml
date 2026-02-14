@@ -1,0 +1,46 @@
+name: ci
+
+on:
+  push:
+    branches: ["**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compute image tag (branch name)
+        id: vars
+        shell: bash
+        run: |
+          # Docker tags can't contain '/', so normalize branch names like 'feature/x' -> 'feature-x'
+          ref_name="${GITHUB_REF_NAME}"
+          tag="${ref_name//\//-}"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ steps.vars.outputs.tag }}
+            ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
