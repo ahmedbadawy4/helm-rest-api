@@ -59,6 +59,7 @@ If Prometheus Operator is used, a `ServiceMonitor` can be enabled:
 ```bash
 HELM_VALUES="--set monitoring.serviceMonitor.enabled=true" make helm-deploy-dev
 ```
+*`ServiceMonitor` is a Prometheus Operator custom resource. When enabled, it instructs Prometheus Operator to discover the chart Service by labels and scrape `GET /metrics` on the `http` port at the configured interval/timeout. If Prometheus Operator (and the `ServiceMonitor` CRD) is not installed in the cluster, this resource will not be used (and may be rejected by the API server).*
 
 ### Autoscaling (HPA)
 
