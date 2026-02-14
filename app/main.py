@@ -14,6 +14,7 @@ def health() -> dict:
 def root() -> dict:
     return {
         "service": "helm-rest-api",
+        "environment": os.getenv("APP_ENV", ""),
         "listen_host": os.getenv("LISTEN_HOST", ""),
         "listen_port": os.getenv("LISTEN_PORT", ""),
     }

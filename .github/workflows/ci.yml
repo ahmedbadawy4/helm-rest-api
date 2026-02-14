@@ -16,6 +16,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
       - name: Compute image tag (branch name)
         id: vars
         shell: bash
@@ -41,6 +44,7 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
+          platforms: linux/amd64,linux/arm64
           tags: |
             ghcr.io/${{ github.repository }}:${{ steps.vars.outputs.tag }}
             ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
