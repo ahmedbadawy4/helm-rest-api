@@ -1,0 +1,7 @@
+apiVersion: v2
+name: helm-rest-api
+description: Helm chart for deploying a stateless REST API publicly on Kubernetes
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+

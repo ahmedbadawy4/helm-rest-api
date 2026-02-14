@@ -1,0 +1,38 @@
+replicaCount: 1
+
+image:
+  # For GitHub Container Registry, the default image name is: ghcr.io/<owner>/<repo>
+  # Example: ghcr.io/acme/helm-rest-api
+  repository: ghcr.io/ahmedbadawy4/helm-rest-api
+  tag: main
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: false
+  name: ""
+
+podAnnotations: {}
+
+podLabels: {}
+
+service:
+  type: ClusterIP
+  port: 80
+
+container:
+  port: 8080
+
+env:
+  listenHost: "0.0.0.0"
+  name: ""
+
+resources: {}
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

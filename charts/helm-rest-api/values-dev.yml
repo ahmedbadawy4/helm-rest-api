@@ -1,0 +1,12 @@
+replicaCount: 1
+
+image:
+  tag: main
+  pullPolicy: Always
+
+imagePullSecrets: []
+
+env:
+  name: dev
+
+resources: {}

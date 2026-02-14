@@ -1,0 +1,5 @@
+1. Get the application URL:
+
+Service (cluster-local):
+  kubectl port-forward -n {{ .Values.env.name }} svc/{{ include "helm-rest-api.fullname" . }} 8080:{{ .Values.service.port }}
+  curl -fsSL http://localhost:8080/health
