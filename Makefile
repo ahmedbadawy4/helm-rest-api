@@ -24,7 +24,9 @@ DEV_PF_LOG ?= /tmp/$(DEV_RELEASE)-pf.log
 .PHONY: help docker-build docker-run docker-run-bg docker-logs docker-stop curl-health \
 	helm-lint helm-template \
 	helm-deploy-dev helm-cleanup-dev \
-	helm-urls-dev
+	helm-urls-dev \
+	traefik-install traefik-uninstall \
+
 
 help:
 	@printf "%s\n" \
@@ -41,6 +43,10 @@ help:
 	"  helm-deploy-dev   Install/upgrade dev (atomic) using values-dev.yml + HELM_VALUES (optional)" \
 	"  helm-cleanup-dev  Uninstall dev release and stop background port-forward" \
 	"  helm-urls-dev     Start port-forward (background) and print localhost URLs"
+	@printf "%s\n" \
+	"" \
+	"  traefik-install   Install/upgrade Traefik (namespace: traefik)" \
+	"  traefik-uninstall Uninstall Traefik (namespace: traefik)"
 
 docker-build:
 	docker build -t $(IMAGE) .
@@ -114,3 +120,17 @@ helm-cleanup-dev:
 	@helm uninstall $(DEV_RELEASE) -n $(DEV_NAMESPACE) >/dev/null 2>&1 || true
 	@if test -f $(DEV_PF_PID); then kill $$(cat $(DEV_PF_PID)) >/dev/null 2>&1 || true; fi
 	@rm -f $(DEV_PF_PID) $(DEV_PF_LOG)
+
+TRAEFIK_NS ?= traefik
+TRAEFIK_RELEASE ?= traefik
+TRAEFIK_VALUES ?= -f ./tools/traefik-values.yaml
+
+traefik-install:
+	helm repo add traefik https://traefik.github.io/charts
+	helm repo update
+	helm upgrade --install --atomic $(TRAEFIK_RELEASE) traefik/traefik \
+		-n $(TRAEFIK_NS) --create-namespace \
+		$(TRAEFIK_VALUES)
+
+traefik-uninstall:
+	@helm uninstall $(TRAEFIK_RELEASE) -n $(TRAEFIK_NS) >/dev/null 2>&1 || true

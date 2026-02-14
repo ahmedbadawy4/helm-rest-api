@@ -1,0 +1,14 @@
+{{- if .Values.pdb.enabled -}}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "helm-rest-api.fullname" . }}
+  labels:
+    {{- include "helm-rest-api.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.pdb.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "helm-rest-api.selectorLabels" . | nindent 6 }}
+{{- end }}
+

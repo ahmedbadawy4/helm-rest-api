@@ -32,8 +32,6 @@ The application exposes `GET /health` and expects:
 - `LISTEN_HOST` (defaults to `0.0.0.0` in the chart)
 - `LISTEN_PORT` (wired to the container port in the chart)
 
-This stage is dev-focused (no Ingress/TLS in the chart yet).
-
 ### Install (dev)
 
 ```bash
@@ -45,6 +43,29 @@ Print local URLs (starts a background port-forward and verifies `/health`):
 ```bash
 make helm-urls-dev
 ```
+
+### Autoscaling (HPA)
+
+HPA is available (disabled by default). To enable it, you must set CPU requests.
+
+### Traefik TLS (Ingress)
+
+The chart supports a standard Kubernetes Ingress.
+
+- `ingress.className: traefik`
+- `ingress.tls` referencing a secret (`helm-rest-api-tls`)
+
+Traefik can be installed using the repo tools:
+
+```bash
+make traefik-install
+```
+
+For a quick demo, a self-signed cert secret named `helm-rest-api-tls` in the `dev` namespace can be created.
+
+In real environments, typically use A company-issued certificate for the company domain, stored as a Kubernetes TLS secret, or cert-manager (recommended) to issue/renew certificates automatically.
+
+Traefik can also be configured with a default certificate (fallback). For production, we should still use a valid cert for the real company domain.
 
 ### Container Image (GHCR)
 
@@ -73,3 +94,21 @@ imagePullSecrets:
 ### Security Defaults
 
 The chart sets secure defaults for the pod/container (non-root, seccomp `RuntimeDefault`, drop all caps, `readOnlyRootFilesystem`). The container mounts an `emptyDir` at `/tmp` to support read-only root filesystems.
+
+### Monitoring And Alerting (Design)
+
+The app exposes `/health` for probes. For production monitoring/alerting, a typical setup is:
+
+- Prometheus scraping (via ServiceMonitor or annotations) for application metrics (if exposed) and Kubernetes metrics
+- Grafana dashboards for latency, error rate, saturation, and pod health
+- Alert rules on:
+  - elevated 5xx/error rate
+  - high latency (p95/p99)
+  - HPA at max replicas for sustained periods
+  - frequent restarts / CrashLoopBackOff
+
+### Security Measures (Design)
+
+- Run as non-root user, drop Linux capabilities, seccomp RuntimeDefault
+- Read-only root filesystem with writable `/tmp`
+- Image scanning (Trivy) and Dockerfile linting (Hadolint) in CI

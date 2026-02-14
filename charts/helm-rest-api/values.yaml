@@ -2,12 +2,28 @@ replicaCount: 1
 
 image:
   # For GitHub Container Registry, the default image name is: ghcr.io/<owner>/<repo>
-  # Example: ghcr.io/acme/helm-rest-api
   repository: ghcr.io/ahmedbadawy4/helm-rest-api
   tag: main
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+
+pdb:
+  enabled: false
+  minAvailable: 1
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts: []
+  tls: []
 
 podSecurityContext:
   runAsNonRoot: true

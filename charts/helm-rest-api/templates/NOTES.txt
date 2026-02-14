@@ -3,3 +3,11 @@
 Service (cluster-local):
   kubectl port-forward -n {{ .Values.env.name }} svc/{{ include "helm-rest-api.fullname" . }} 8080:{{ .Values.service.port }}
   curl -fsSL http://localhost:8080/health
+
+{{- if .Values.ingress.enabled }}
+
+Ingress:
+{{- range .Values.ingress.hosts }}
+  http{{- if $.Values.ingress.tls }}s{{- end }}://{{ .host }}/
+{{- end }}
+{{- end }}
