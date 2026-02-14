@@ -11,4 +11,3 @@ spec:
     matchLabels:
       {{- include "helm-rest-api.selectorLabels" . | nindent 6 }}
 {{- end }}
-

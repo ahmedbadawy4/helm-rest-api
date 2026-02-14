@@ -25,6 +25,15 @@ ingress:
   hosts: []
   tls: []
 
+monitoring:
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    scrapeTimeout: 10s
+    path: /metrics
+    honorLabels: false
+    additionalLabels: {}
+
 podSecurityContext:
   runAsNonRoot: true
   runAsUser: 10001

@@ -1,6 +1,8 @@
 import os
 
 from fastapi import FastAPI
+from fastapi.responses import PlainTextResponse
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 app = FastAPI(title="helm-rest-api")
 
@@ -18,3 +20,8 @@ def root() -> dict:
         "listen_host": os.getenv("LISTEN_HOST", ""),
         "listen_port": os.getenv("LISTEN_PORT", ""),
     }
+
+
+@app.get("/metrics")
+def metrics() -> PlainTextResponse:
+    return PlainTextResponse(generate_latest(), media_type=CONTENT_TYPE_LATEST)

@@ -10,7 +10,7 @@ A Helm chart to deploy a stateless REST API publicly on Kubernetes.
 make docker-run
 ```
 
-In another terminal:
+In a second terminal:
 
 ```bash
 make curl-health
@@ -44,9 +44,25 @@ Print local URLs (starts a background port-forward and verifies `/health`):
 make helm-urls-dev
 ```
 
+### Metrics (Prometheus)
+
+The app exposes Prometheus metrics on `GET /metrics`.
+
+Quick check (with port-forward running):
+
+```bash
+curl -fsSL http://localhost:8080/metrics | head
+```
+
+If Prometheus Operator is used, a `ServiceMonitor` can be enabled:
+
+```bash
+HELM_VALUES="--set monitoring.serviceMonitor.enabled=true" make helm-deploy-dev
+```
+
 ### Autoscaling (HPA)
 
-HPA is available (disabled by default). To enable it, you must set CPU requests.
+HPA is available (disabled by default). Enabling it requires CPU requests.
 
 ### Traefik TLS (Ingress)
 
@@ -55,26 +71,25 @@ The chart supports a standard Kubernetes Ingress.
 - `ingress.className: traefik`
 - `ingress.tls` referencing a secret (`helm-rest-api-tls`)
 
-Traefik can be installed using the repo tools:
+Traefik installation (Helm):
 
 ```bash
 make traefik-install
 ```
 
-For a quick demo, a self-signed cert secret named `helm-rest-api-tls` in the `dev` namespace can be created.
+For local demos, a self-signed TLS secret named `helm-rest-api-tls` can be created in the `dev` namespace.
 
-In real environments, typically use A company-issued certificate for the company domain, stored as a Kubernetes TLS secret, or cert-manager (recommended) to issue/renew certificates automatically.
+In real environments, a company-issued certificate can be stored as a Kubernetes TLS secret, or cert-manager (recommended) can be used to issue/renew certificates automatically.
 
-Traefik can also be configured with a default certificate (fallback). For production, we should still use a valid cert for the real company domain.
+Traefik can also be configured with a default certificate (fallback). For production usage, a valid certificate for the company domain should be used.
 
 ### Container Image (GHCR)
 
-This repo includes a GitHub Action that publishes the image to GitHub Container Registry on `push` (not PRs):
+This repository includes a GitHub Action that publishes the image to GitHub Container Registry on `push` (not PRs).
 
 Dev defaults are set in `charts/helm-rest-api/values-dev.yml` (repository + tag).
-```
 
-**Notes: If the GHCR package is private, create an image pull secret and set it via Helm values:**
+If the GHCR package is private, create an image pull secret and reference it via Helm values:
 
 ```bash
 kubectl -n dev create secret docker-registry ghcr-pull \
