@@ -160,13 +160,20 @@ release-prod:
 	@if ! git diff --quiet || ! git diff --cached --quiet; then echo "working tree must be clean"; exit 1; fi
 	@set -euo pipefail; \
 	branch="release/$(TAG)"; \
-	file="charts/helm-rest-api/values-prod.yml"; \
-	test -f "$$file"; \
+	prod_file="charts/helm-rest-api/values-prod.yml"; \
+	chart_file="charts/helm-rest-api/Chart.yaml"; \
+	version="$${TAG#v}"; \
+	test -f "$$prod_file"; \
+	test -f "$$chart_file"; \
 	git checkout -b "$$branch"; \
-	sed -i.bak -E "s/^[[:space:]]{2}tag:.*/  tag: $(TAG)/" "$$file"; \
-	rm -f "$$file.bak"; \
-	git add "$$file"; \
-	if git diff --cached --quiet; then echo "no changes staged (did not update $$file)"; exit 1; fi; \
+	sed -i.bak -E "s/^[[:space:]]{2}tag:.*/  tag: $(TAG)/" "$$prod_file"; \
+	rm -f "$$prod_file.bak"; \
+	sed -i.bak -E "s/^version:.*/version: $${version}/" "$$chart_file"; \
+	rm -f "$$chart_file.bak"; \
+	sed -i.bak -E "s/^appVersion:.*/appVersion: \\\"$${version}\\\"/" "$$chart_file"; \
+	rm -f "$$chart_file.bak"; \
+	git add "$$prod_file" "$$chart_file"; \
+	if git diff --cached --quiet; then echo "no changes staged (did not update values)"; exit 1; fi; \
 	git commit -m "chore(release): $(TAG)"; \
 	git tag -a "$(TAG)" -m "Release $(TAG)"; \
 	git push -u origin "$$branch"; \
