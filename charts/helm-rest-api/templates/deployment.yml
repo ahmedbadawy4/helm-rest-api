@@ -48,6 +48,8 @@ spec:
           env:
             - name: APP_ENV
               value: {{ .Values.env.name | quote }}
+            - name: APP_IMAGE_TAG
+              value: {{ .Values.image.tag | quote }}
             - name: LISTEN_HOST
               value: {{ .Values.env.listenHost | quote }}
             - name: LISTEN_PORT

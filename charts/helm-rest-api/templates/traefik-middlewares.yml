@@ -43,4 +43,3 @@ spec:
     frameDeny: {{ .Values.traefik.middlewares.headers.frameDeny }}
 {{- end -}}
 {{- end -}}
-

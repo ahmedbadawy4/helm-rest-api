@@ -1,32 +1,30 @@
-replicaCount: 2
+replicaCount: 3
+
+env:
+  name: prod
 
 image:
   repository: ghcr.io/ahmedbadawy4/helm-rest-api
   tag: main
-  pullPolicy: Always
-
-imagePullSecrets: []
-
-env:
-  name: dev
+  pullPolicy: IfNotPresent
 
 resources:
   requests:
-    cpu: 100m
-    memory: 128Mi
-  limits:
-    cpu: 500m
+    cpu: 200m
     memory: 256Mi
+  limits:
+    cpu: 1000m
+    memory: 512Mi
 
 autoscaling:
   enabled: true
-  minReplicas: 2
-  maxReplicas: 6
+  minReplicas: 3
+  maxReplicas: 10
   targetCPUUtilizationPercentage: 70
 
 pdb:
   enabled: true
-  minAvailable: 1
+  minAvailable: 2
 
 ingress:
   enabled: true
@@ -34,14 +32,14 @@ ingress:
   annotations:
     traefik.ingress.kubernetes.io/router.tls: "true"
   hosts:
-    - host: dev.helm-rest-api.local
+    - host: api.prod.company.example
       paths:
         - path: /
           pathType: Prefix
   tls:
-    - secretName: helm-rest-api-tls
+    - secretName: api-company-example-tls
       hosts:
-        - dev.helm-rest-api.local
+        - api.prod.company.example
 
 traefik:
   middlewares:

@@ -21,12 +21,20 @@ DEV_SVC ?= $(DEV_RELEASE)-helm-rest-api
 DEV_PF_PID ?= /tmp/$(DEV_RELEASE)-pf.pid
 DEV_PF_LOG ?= /tmp/$(DEV_RELEASE)-pf.log
 
+# Environment: prod
+PROD_RELEASE ?= $(RELEASE)-prod
+PROD_NAMESPACE ?= prod
+PROD_VALUES ?= -f $(CHART)/values-prod.yml
+
 .PHONY: help docker-build docker-run docker-run-bg docker-logs docker-stop curl-health \
-	helm-lint helm-template \
+		helm-lint \
 	helm-deploy-dev helm-cleanup-dev \
+	helm-deploy-prod helm-cleanup-prod \
 	helm-urls-dev \
+	release-tag \
+	release-prod \
 	traefik-install traefik-uninstall \
-	traefik-urls traefik-pf-stop traefik-test-dev \
+
 
 
 help:
@@ -43,14 +51,16 @@ help:
 	"" \
 	"  helm-deploy-dev   Install/upgrade dev (atomic) using values-dev.yml + HELM_VALUES (optional)" \
 	"  helm-cleanup-dev  Uninstall dev release and stop background port-forward" \
-	"  helm-urls-dev     Start port-forward (background) and print localhost URLs"
+	"  helm-deploy-prod  Install/upgrade prod (atomic) using values-prod.yml + HELM_VALUES (optional)" \
+	"  helm-cleanup-prod Uninstall prod release" \
+	"  helm-urls-dev     Start port-forward (background) and print localhost URLs" \
+	"" \
+	"  release-tag      Create and push a release tag (TAG=vX.Y.Z)" \
+	"  release-prod     Create release/<tag> branch, bump prod values, tag, push (TAG=vX.Y.Z)"
 	@printf "%s\n" \
 	"" \
 	"  traefik-install   Install/upgrade Traefik (namespace: traefik)" \
-	"  traefik-uninstall Uninstall Traefik (namespace: traefik)" \
-	"  traefik-urls      Start Traefik port-forward and print local endpoints" \
-	"  traefik-test-dev  Smoke-test dev Ingress + Traefik middlewares" \
-	"  traefik-pf-stop   Stop Traefik port-forward"
+	"  traefik-uninstall Uninstall Traefik (namespace: traefik)"
 
 docker-build:
 	docker build -t $(IMAGE) .
@@ -58,6 +68,8 @@ docker-build:
 docker-run: docker-build
 	@docker rm -f $(CONTAINER) >/dev/null 2>&1 || true
 	docker run --name $(CONTAINER) --rm -p $(PORT):$(PORT) \
+		-e APP_ENV=local \
+		-e APP_IMAGE_TAG=local \
 		-e LISTEN_HOST=$(LISTEN_HOST) \
 		-e LISTEN_PORT=$(LISTEN_PORT) \
 		$(IMAGE)
@@ -65,6 +77,8 @@ docker-run: docker-build
 docker-run-bg: docker-build
 	@docker rm -f $(CONTAINER) >/dev/null 2>&1 || true
 	docker run --name $(CONTAINER) -d -p $(PORT):$(PORT) \
+		-e APP_ENV=local \
+		-e APP_IMAGE_TAG=local \
 		-e LISTEN_HOST=$(LISTEN_HOST) \
 		-e LISTEN_PORT=$(LISTEN_PORT) \
 		$(IMAGE) >/dev/null
@@ -84,10 +98,10 @@ helm-lint:
 	helm lint $(CHART)
 
 helm-deploy-dev:
-	helm upgrade --install $(DEV_RELEASE) $(CHART) \
-		-n $(DEV_NAMESPACE) --create-namespace \
-		$(DEV_VALUES) \
-		$(HELM_VALUES)
+	helm upgrade --install --atomic $(DEV_RELEASE) $(CHART) \
+			-n $(DEV_NAMESPACE) --create-namespace \
+			$(DEV_VALUES) \
+			$(HELM_VALUES)
 
 helm-urls-dev:
 	@set -e; \
@@ -125,15 +139,40 @@ helm-cleanup-dev:
 	@if test -f $(DEV_PF_PID); then kill $$(cat $(DEV_PF_PID)) >/dev/null 2>&1 || true; fi
 	@rm -f $(DEV_PF_PID) $(DEV_PF_LOG)
 
+helm-deploy-prod:
+	helm upgrade --install --atomic $(PROD_RELEASE) $(CHART) \
+		-n $(PROD_NAMESPACE) --create-namespace \
+		$(PROD_VALUES) \
+		$(HELM_VALUES)
+
+helm-cleanup-prod:
+	@helm uninstall $(PROD_RELEASE) -n $(PROD_NAMESPACE) >/dev/null 2>&1 || true
+
+release-tag:
+	@if test -z "$(TAG)"; then echo "TAG is required (example: TAG=v1.2.3)"; exit 1; fi
+	@case "$(TAG)" in v*) : ;; *) echo "TAG must start with 'v' (example: v1.2.3)"; exit 1 ;; esac
+	git tag -a "$(TAG)" -m "Release $(TAG)"
+	git push origin "$(TAG)"
+
+release-prod:
+	@if test -z "$(TAG)"; then echo "TAG is required (example: TAG=v1.2.3)"; exit 1; fi
+	@case "$(TAG)" in v*) : ;; *) echo "TAG must start with 'v' (example: v1.2.3)"; exit 1 ;; esac
+	@if ! git diff --quiet || ! git diff --cached --quiet; then echo "working tree must be clean"; exit 1; fi
+	@branch="release/$(TAG)"; \
+	file="charts/helm-rest-api/values-prod.yml"; \
+	test -f "$$file"; \
+	git checkout -b "$$branch"; \
+	sed -i.bak -E "0,/^[[:space:]]{2}tag:/s//  tag: $(TAG)/" "$$file"; \
+	rm -f "$$file.bak"; \
+	git add "$$file"; \
+	git commit -m "chore(release): $(TAG)"; \
+	git tag -a "$(TAG)" -m "Release $(TAG)"; \
+	git push -u origin "$$branch"; \
+	git push origin "$(TAG)"
+
 TRAEFIK_NS ?= traefik
 TRAEFIK_RELEASE ?= traefik
 TRAEFIK_VALUES ?= -f ./tools/traefik-values.yaml
-TRAEFIK_SVC ?= traefik
-TRAEFIK_PF_PID ?= /tmp/traefik-port-forward.pid
-TRAEFIK_PF_LOG ?= /tmp/traefik-port-forward.log
-TRAEFIK_LOCAL_HTTPS_PORT ?= 8443
-
-DEV_INGRESS_HOST ?= helm-rest-api.local
 
 traefik-install:
 	helm repo add traefik https://traefik.github.io/charts
@@ -144,37 +183,3 @@ traefik-install:
 
 traefik-uninstall:
 	@helm uninstall $(TRAEFIK_RELEASE) -n $(TRAEFIK_NS) >/dev/null 2>&1 || true
-
-traefik-urls:
-	@set -e; \
-	if test -f "$(TRAEFIK_PF_PID)" && kill -0 "$$(cat "$(TRAEFIK_PF_PID)")" >/dev/null 2>&1; then \
-		:; \
-	else \
-		rm -f "$(TRAEFIK_PF_PID)" "$(TRAEFIK_PF_LOG)"; \
-		( kubectl -n "$(TRAEFIK_NS)" port-forward "svc/$(TRAEFIK_SVC)" "$(TRAEFIK_LOCAL_HTTPS_PORT):443" >"$(TRAEFIK_PF_LOG)" 2>&1 & echo $$! > "$(TRAEFIK_PF_PID)" ); \
-		sleep 1; \
-	fi
-	@printf "%s\n" \
-	"Traefik local endpoints:" \
-	"  https://localhost:$(TRAEFIK_LOCAL_HTTPS_PORT)/  (use Host: $(DEV_INGRESS_HOST))" \
-	"  https://localhost:$(TRAEFIK_LOCAL_HTTPS_PORT)/health  (use Host: $(DEV_INGRESS_HOST))"
-
-traefik-pf-stop:
-	@if test -f "$(TRAEFIK_PF_PID)"; then kill "$$(cat "$(TRAEFIK_PF_PID)")" >/dev/null 2>&1 || true; fi
-	@rm -f "$(TRAEFIK_PF_PID)" "$(TRAEFIK_PF_LOG)"
-
-traefik-test-dev: traefik-urls
-	@set -e; \
-	url="https://localhost:$(TRAEFIK_LOCAL_HTTPS_PORT)/health"; \
-	echo "Request: $$url (Host: $(DEV_INGRESS_HOST))"; \
-	code="$$(curl -sk -o /dev/null -w '%{http_code}' -H "Host: $(DEV_INGRESS_HOST)" "$$url")"; \
-	echo "Status: $$code"; \
-	if test "$$code" != "200"; then \
-		echo "Failed. Recent Traefik port-forward log:"; \
-		test -f "$(TRAEFIK_PF_LOG)" && tail -n 50 "$(TRAEFIK_PF_LOG)" || true; \
-		exit 1; \
-	fi; \
-	echo "Response headers (expect security headers when middlewares are enabled):"; \
-	curl -skI -H "Host: $(DEV_INGRESS_HOST)" "$$url" | grep -Ei '^(strict-transport-security|x-content-type-options|x-frame-options|x-xss-protection):' || true; \
-	echo "Rate-limit probe (200 requests, status code histogram):"; \
-	i=0; while test $$i -lt 200; do curl -sk -o /dev/null -w '%{http_code}\n' -H "Host: $(DEV_INGRESS_HOST)" "$$url"; i=$$((i+1)); done | sort | uniq -c

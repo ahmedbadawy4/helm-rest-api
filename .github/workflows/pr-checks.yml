@@ -1,14 +1,11 @@
-name: ci
+name: PR Checks
 
 on:
-  push:
-    branches: ["**"]
   pull_request:
-  workflow_dispatch:
+    branches: ["main"]
 
 permissions:
   contents: read
-  packages: write
 
 jobs:
   helm-check:
@@ -26,9 +23,17 @@ jobs:
       - name: Helm template (dev)
         run: helm template helm-rest-api-dev ./charts/helm-rest-api -f ./charts/helm-rest-api/values-dev.yml >/dev/null
 
+      - name: Helm template (prod)
+        run: helm template helm-rest-api-prod ./charts/helm-rest-api -f ./charts/helm-rest-api/values-prod.yml >/dev/null
+
       - name: Kubeconform (dev render)
         run: |
           helm template helm-rest-api-dev ./charts/helm-rest-api -f ./charts/helm-rest-api/values-dev.yml \
+            | docker run --rm -i ghcr.io/yannh/kubeconform:v0.6.7 -strict -ignore-missing-schemas
+
+      - name: Kubeconform (prod render)
+        run: |
+          helm template helm-rest-api-prod ./charts/helm-rest-api -f ./charts/helm-rest-api/values-prod.yml \
             | docker run --rm -i ghcr.io/yannh/kubeconform:v0.6.7 -strict -ignore-missing-schemas
 
   dockerfile-lint:
@@ -85,43 +90,3 @@ jobs:
           ignore-unfixed: true
           exit-code: "1"
 
-  build-and-push:
-    runs-on: ubuntu-latest
-    needs: [helm-check, dockerfile-lint, trivy-fs-scan, build-and-scan-image]
-    if: github.event_name == 'push'
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Compute image tag (branch name)
-        id: vars
-        shell: bash
-        run: |
-          # Docker tags can't contain '/', so normalize branch names like 'feature/x' -> 'feature-x'
-          ref_name="${GITHUB_REF_NAME}"
-          tag="${ref_name//\//-}"
-          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./Dockerfile
-          push: true
-          platforms: linux/amd64,linux/arm64
-          tags: |
-            ghcr.io/${{ github.repository }}:${{ steps.vars.outputs.tag }}
-            ghcr.io/${{ github.repository }}:sha-${{ github.sha }}

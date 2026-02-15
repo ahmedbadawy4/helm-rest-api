@@ -17,6 +17,7 @@ def root() -> dict:
     return {
         "service": "helm-rest-api",
         "environment": os.getenv("APP_ENV", ""),
+        "image_tag": os.getenv("APP_IMAGE_TAG", ""),
         "listen_host": os.getenv("LISTEN_HOST", ""),
         "listen_port": os.getenv("LISTEN_PORT", ""),
     }

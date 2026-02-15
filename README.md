@@ -1,6 +1,6 @@
 # helm-rest-api
 
-[![CI](https://github.com/ahmedbadawy4/helm-rest-api/actions/workflows/ci.yml/badge.svg)](https://github.com/ahmedbadawy4/helm-rest-api/actions/workflows/ci.yml)
+[![CI](https://github.com/ahmedbadawy4/helm-rest-api/actions/workflows/pr-checks.yml/badge.svg)](https://github.com/ahmedbadawy4/helm-rest-api/actions/workflows/pr-checks.yml)
 
 A Helm chart to deploy a stateless REST API publicly on Kubernetes.
 
@@ -37,6 +37,35 @@ The application exposes `GET /health` and expects:
 ```bash
 make helm-deploy-dev
 ```
+
+### Install (prod)
+
+`charts/helm-rest-api/values-prod.yml` is an example production overlay. It is intended to be customized with:
+
+- a real company domain hostname
+- a real TLS secret name
+- an immutable image tag (`vX.Y.Z` or `sha-<gitsha>`)
+
+```bash
+make helm-deploy-prod
+```
+
+Release flow:
+
+- Pushes to `main` publish `ghcr.io/<owner>/<repo>:main`.
+- Pushing a release tag `vX.Y.Z` publishes `ghcr.io/<owner>/<repo>:vX.Y.Z`.
+
+Recommended release (release branch between `main` and the tag):
+
+```bash
+make release-prod TAG=v1.2.3
+```
+
+This creates `release/v1.2.3`, bumps `charts/helm-rest-api/values-prod.yml` to `v1.2.3`, creates the `v1.2.3` tag on that commit, and pushes both branch and tag.
+
+Optionally open a PR to merge `release/v1.2.3` back into `main` to keep `main` aligned with the latest production release.
+
+The API `GET /` response includes both the environment name and the image tag (`APP_ENV` + `APP_IMAGE_TAG`).
 
 Print local URLs (starts a background port-forward and verifies `/health`):
 
@@ -98,12 +127,6 @@ Enable in values:
 traefik:
   middlewares:
     enabled: true
-```
-
-Smoke test (requires Traefik installed and Ingress enabled):
-
-```bash
-make traefik-test-dev
 ```
 
 ### Container Image (GHCR)
