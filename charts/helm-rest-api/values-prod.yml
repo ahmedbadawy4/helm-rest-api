@@ -5,7 +5,7 @@ env:
 
 image:
   repository: ghcr.io/ahmedbadawy4/helm-rest-api
-  tag: main
+  tag: v0.1.0
   pullPolicy: IfNotPresent
 
 resources:

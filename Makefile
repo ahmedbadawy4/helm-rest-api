@@ -158,13 +158,15 @@ release-prod:
 	@if test -z "$(TAG)"; then echo "TAG is required (example: TAG=v1.2.3)"; exit 1; fi
 	@case "$(TAG)" in v*) : ;; *) echo "TAG must start with 'v' (example: v1.2.3)"; exit 1 ;; esac
 	@if ! git diff --quiet || ! git diff --cached --quiet; then echo "working tree must be clean"; exit 1; fi
-	@branch="release/$(TAG)"; \
+	@set -euo pipefail; \
+	branch="release/$(TAG)"; \
 	file="charts/helm-rest-api/values-prod.yml"; \
 	test -f "$$file"; \
 	git checkout -b "$$branch"; \
-	sed -i.bak -E "0,/^[[:space:]]{2}tag:/s//  tag: $(TAG)/" "$$file"; \
+	sed -i.bak -E "s/^[[:space:]]{2}tag:.*/  tag: $(TAG)/" "$$file"; \
 	rm -f "$$file.bak"; \
 	git add "$$file"; \
+	if git diff --cached --quiet; then echo "no changes staged (did not update $$file)"; exit 1; fi; \
 	git commit -m "chore(release): $(TAG)"; \
 	git tag -a "$(TAG)" -m "Release $(TAG)"; \
 	git push -u origin "$$branch"; \
