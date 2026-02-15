@@ -34,14 +34,14 @@ ingress:
   annotations:
     traefik.ingress.kubernetes.io/router.tls: "true"
   hosts:
-    - host: dev.helm-rest-api.local
+    - host: api.dev.company.example
       paths:
         - path: /
           pathType: Prefix
   tls:
     - secretName: helm-rest-api-tls
       hosts:
-        - dev.helm-rest-api.local
+        - api.dev.company.example
 
 traefik:
   middlewares:

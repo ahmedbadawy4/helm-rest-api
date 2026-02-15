@@ -10,4 +10,29 @@ Ingress:
 {{- range .Values.ingress.hosts }}
   http{{- if $.Values.ingress.tls }}s{{- end }}://{{ .host }}/
 {{- end }}
+
+2. Optional: add Ingress hostnames to /etc/hosts (local testing)
+
+If DNS is not configured for the Ingress hostnames, map them to an IP reachable from your machine.
+
+Option A (LoadBalancer): use the ingress controller EXTERNAL-IP
+  kubectl -n <ingress-namespace> get svc
+  # pick the EXTERNAL-IP (or hostname) and add entries like:
+{{- range .Values.ingress.hosts }}
+  sudo sh -c 'echo "<EXTERNAL-IP> {{ .host }}" >> /etc/hosts'
+{{- end }}
+
+If LoadBalancer is not available but the ingress Service IP is reachable from the workstation (environment-dependent),
+use the Service ClusterIP:
+  kubectl -n <ingress-namespace> get svc <ingress-service> -o jsonpath='{.spec.clusterIP}{"\n"}'
+{{- range .Values.ingress.hosts }}
+  sudo sh -c 'echo "<CLUSTER-IP> {{ .host }}" >> /etc/hosts'
+{{- end }}
+
+Option B (port-forward): map hostnames to 127.0.0.1
+  # forward the ingress controller service to localhost (example for TLS):
+  kubectl -n <ingress-namespace> port-forward svc/<ingress-service> 8443:443
+{{- range .Values.ingress.hosts }}
+  sudo sh -c 'echo "127.0.0.1 {{ .host }}" >> /etc/hosts'
+{{- end }}
 {{- end }}
