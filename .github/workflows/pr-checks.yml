@@ -17,8 +17,28 @@ jobs:
       - name: Set up Helm
         uses: azure/setup-helm@v4
 
-      - name: Helm lint
-        run: helm lint ./charts/helm-rest-api
+      # The workflows publish ghcr.io/<owner>/<repository>. A repository rename
+      # does not rename the package, so the image name in the chart values has
+      # to follow the repository name.
+      - name: Image name matches the repository
+        run: |
+          expected="ghcr.io/$(printf '%s' "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')"
+          failed=0
+          for f in values.yaml values-dev.yml values-prod.yml; do
+            path="charts/helm-rest-api/$f"
+            actual="$(awk '$1 == "repository:" { gsub(/"/, "", $2); print $2; exit }' "$path")"
+            if [[ "$actual" != "$expected" ]]; then
+              echo "::error file=$path::image.repository is '$actual', expected '$expected'"
+              failed=1
+            fi
+          done
+          exit "$failed"
+
+      - name: Helm lint (default, dev and prod values)
+        run: |
+          helm lint ./charts/helm-rest-api
+          helm lint ./charts/helm-rest-api -f ./charts/helm-rest-api/values-dev.yml
+          helm lint ./charts/helm-rest-api -f ./charts/helm-rest-api/values-prod.yml
 
       - name: Helm template (dev)
         run: helm template helm-rest-api-dev ./charts/helm-rest-api -f ./charts/helm-rest-api/values-dev.yml >/dev/null
@@ -89,4 +109,3 @@ jobs:
           severity: CRITICAL,HIGH
           ignore-unfixed: true
           exit-code: "1"
-

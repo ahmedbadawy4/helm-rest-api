@@ -38,4 +38,3 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository }}:main
             ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
-

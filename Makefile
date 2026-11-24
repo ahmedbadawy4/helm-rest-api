@@ -17,7 +17,10 @@ HELM_VALUES ?=
 DEV_RELEASE ?= $(RELEASE)-dev
 DEV_NAMESPACE ?= dev
 DEV_VALUES ?= -f $(CHART)/values-dev.yml
-DEV_SVC ?= $(DEV_RELEASE)-helm-rest-api
+# The chart names the Service after the release when the release name already
+# contains the chart name (helm-rest-api-dev), otherwise <release>-helm-rest-api.
+# helm-urls-dev falls back to a label lookup if this name does not exist.
+DEV_SVC ?= $(DEV_RELEASE)
 DEV_PF_PID ?= /tmp/$(DEV_RELEASE)-pf.pid
 DEV_PF_LOG ?= /tmp/$(DEV_RELEASE)-pf.log
 
@@ -27,15 +30,13 @@ PROD_NAMESPACE ?= prod
 PROD_VALUES ?= -f $(CHART)/values-prod.yml
 
 .PHONY: help docker-build docker-run docker-run-bg docker-logs docker-stop curl-health \
-		helm-lint \
+	helm-lint \
 	helm-deploy-dev helm-cleanup-dev \
 	helm-deploy-prod helm-cleanup-prod \
 	helm-urls-dev \
 	release-tag \
 	release-prod \
-	traefik-install traefik-uninstall \
-
-
+	traefik-install traefik-uninstall
 
 help:
 	@printf "%s\n" \
@@ -47,7 +48,7 @@ help:
 	"  docker-stop      Stop background container" \
 	"  curl-health      Call http://localhost:$(PORT)/health" \
 	"" \
-	"  helm-lint         Helm lint $(CHART)" \
+	"  helm-lint         Helm lint $(CHART) with default, dev and prod values" \
 	"" \
 	"  helm-deploy-dev   Install/upgrade dev (atomic) using values-dev.yml + HELM_VALUES (optional)" \
 	"  helm-cleanup-dev  Uninstall dev release and stop background port-forward" \
@@ -96,6 +97,8 @@ curl-health:
 
 helm-lint:
 	helm lint $(CHART)
+	helm lint $(CHART) $(DEV_VALUES)
+	helm lint $(CHART) $(PROD_VALUES)
 
 helm-deploy-dev:
 	helm upgrade --install --atomic $(DEV_RELEASE) $(CHART) \
@@ -158,7 +161,7 @@ release-prod:
 	@if test -z "$(TAG)"; then echo "TAG is required (example: TAG=v1.2.3)"; exit 1; fi
 	@case "$(TAG)" in v*) : ;; *) echo "TAG must start with 'v' (example: v1.2.3)"; exit 1 ;; esac
 	@if ! git diff --quiet || ! git diff --cached --quiet; then echo "working tree must be clean"; exit 1; fi
-	@set -euo pipefail; \
+	@set -eu; \
 	branch="release/$(TAG)"; \
 	prod_file="charts/helm-rest-api/values-prod.yml"; \
 	chart_file="charts/helm-rest-api/Chart.yaml"; \
@@ -182,12 +185,15 @@ release-prod:
 TRAEFIK_NS ?= traefik
 TRAEFIK_RELEASE ?= traefik
 TRAEFIK_VALUES ?= -f ./tools/traefik-values.yaml
+# Optional: pin the Traefik chart (example: TRAEFIK_CHART_VERSION=<x.y.z>).
+TRAEFIK_CHART_VERSION ?=
 
 traefik-install:
 	helm repo add traefik https://traefik.github.io/charts
 	helm repo update
 	helm upgrade --install --atomic $(TRAEFIK_RELEASE) traefik/traefik \
 		-n $(TRAEFIK_NS) --create-namespace \
+		$(if $(TRAEFIK_CHART_VERSION),--version "$(TRAEFIK_CHART_VERSION)") \
 		$(TRAEFIK_VALUES)
 
 traefik-uninstall:

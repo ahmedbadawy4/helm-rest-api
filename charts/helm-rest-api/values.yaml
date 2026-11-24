@@ -53,6 +53,10 @@ monitoring:
     scrapeTimeout: 10s
     path: /metrics
     honorLabels: false
+    # kube-prometheus-stack only picks up ServiceMonitors that carry the label
+    # release: <its Helm release name>. Example:
+    # additionalLabels:
+    #   release: monitoring
     additionalLabels: {}
 
 automountServiceAccountToken: false
