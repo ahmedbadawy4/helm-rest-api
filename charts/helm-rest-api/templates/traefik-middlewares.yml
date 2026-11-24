@@ -1,6 +1,7 @@
-{{- if .Values.traefik.middlewares.enabled -}}
-{{- $name := include "helm-rest-api.fullname" . -}}
-{{- if .Values.traefik.middlewares.rateLimit.enabled -}}
+{{- if .Values.traefik.middlewares.enabled }}
+{{- $name := include "helm-rest-api.fullname" . }}
+{{- if .Values.traefik.middlewares.rateLimit.enabled }}
+---
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
@@ -9,11 +10,11 @@ metadata:
     {{- include "helm-rest-api.labels" . | nindent 4 }}
 spec:
   rateLimit:
-    average: {{ .Values.traefik.middlewares.rateLimit.average }}
-    burst: {{ .Values.traefik.middlewares.rateLimit.burst }}
+    average: {{ .Values.traefik.middlewares.rateLimit.average | int64 }}
+    burst: {{ .Values.traefik.middlewares.rateLimit.burst | int64 }}
+{{- end }}
+{{- if .Values.traefik.middlewares.retry.enabled }}
 ---
-{{- end -}}
-{{- if .Values.traefik.middlewares.retry.enabled -}}
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
@@ -22,11 +23,11 @@ metadata:
     {{- include "helm-rest-api.labels" . | nindent 4 }}
 spec:
   retry:
-    attempts: {{ .Values.traefik.middlewares.retry.attempts }}
+    attempts: {{ .Values.traefik.middlewares.retry.attempts | int64 }}
     initialInterval: {{ .Values.traefik.middlewares.retry.initialInterval | quote }}
+{{- end }}
+{{- if .Values.traefik.middlewares.headers.enabled }}
 ---
-{{- end -}}
-{{- if .Values.traefik.middlewares.headers.enabled -}}
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
@@ -35,11 +36,13 @@ metadata:
     {{- include "helm-rest-api.labels" . | nindent 4 }}
 spec:
   headers:
-    stsSeconds: {{ .Values.traefik.middlewares.headers.stsSeconds }}
+    # Helm reads YAML numbers as floats, so int64 keeps 31536000 from
+    # being rendered as 3.1536e+07.
+    stsSeconds: {{ .Values.traefik.middlewares.headers.stsSeconds | int64 }}
     stsIncludeSubdomains: {{ .Values.traefik.middlewares.headers.stsIncludeSubdomains }}
     stsPreload: {{ .Values.traefik.middlewares.headers.stsPreload }}
     contentTypeNosniff: {{ .Values.traefik.middlewares.headers.contentTypeNosniff }}
     browserXssFilter: {{ .Values.traefik.middlewares.headers.browserXssFilter }}
     frameDeny: {{ .Values.traefik.middlewares.headers.frameDeny }}
-{{- end -}}
-{{- end -}}
+{{- end }}
+{{- end }}
